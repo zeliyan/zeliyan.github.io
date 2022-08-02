@@ -181,7 +181,7 @@
   
 
   <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="">
-    <link itemprop="mainEntityOfPage" href="http://zeliyan.github.io/2022/08/01/%E7%A8%8B%E5%BA%8F%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E6%8C%87%E5%8D%97/">
+    <link itemprop="mainEntityOfPage" href="http://zeliyan.github.io/2022/08/01/%E7%A8%8B%E5%BA%8F%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -199,7 +199,7 @@
     </span>
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
-          <a href="/2022/08/01/%E7%A8%8B%E5%BA%8F%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E6%8C%87%E5%8D%97/" class="post-title-link" itemprop="url">【csapp笔记】程序性能优化</a>
+          <a href="/2022/08/01/%E7%A8%8B%E5%BA%8F%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/" class="post-title-link" itemprop="url">【csapp笔记】程序性能优化</a>
         </h2>
 
         <div class="post-meta-container">
@@ -217,7 +217,7 @@
         <i class="far fa-calendar-check"></i>
       </span>
       <span class="post-meta-item-text">Edited on</span>
-      <time title="Modified: 2022-08-02 12:13:30" itemprop="dateModified" datetime="2022-08-02T12:13:30+08:00">2022-08-02</time>
+      <time title="Modified: 2022-08-02 12:25:05" itemprop="dateModified" datetime="2022-08-02T12:25:05+08:00">2022-08-02</time>
     </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
@@ -239,75 +239,15 @@
     
     
     <div class="post-body" itemprop="articleBody">
-          <p>[toc]</p>
-<p>最近在学CMU 15-213这门课，顺便看了著名的CSAPP这本书。程序性能优化这章感觉很有意思，<strong>讲如何写出高效的代码，编译器如何对代码进行优化，以及程序性能提升的瓶颈是什么</strong>。在一段程序中，一个很小的改动可能就会带来几十，甚至几百倍的性能提升。</p>
-<p>限制一段程序性能的首先是它采用的算法，渐进复杂度大致上刻画了它能达到的性能。但在这个复杂度的基础上，我们还可以做很多事情来做常数级别的提升，具体的方法将在下文介绍。</p>
-<p>程序优化不是无所不能的，对于程序优化需要认识到以下几点：</p>
-<ul>
-<li>程序优化不会改变算法的复杂度</li>
-<li>程序优化不能改变原本程序的运行结果</li>
-<li>大部分编译器对于程序优化都是相当保守的，如果编译器不确定一个优化是否安全，那么编译器就会选择不进行优化。</li>
-</ul>
-<h2 id="1-通用的优化方法"><a href="#1-通用的优化方法" class="headerlink" title="1    通用的优化方法"></a>1    通用的优化方法</h2><p>这类优化方法相对基础，即使我们不手动优化，在<strong>gcc编译器中使用<code>-O1</code>级别对代码进行编译也能达到相同的效果</strong>。</p>
-<h3 id="Code-Motion"><a href="#Code-Motion" class="headerlink" title="Code Motion"></a>Code Motion</h3><p><strong>将效率低下的代码移出循环</strong>。在一个循环中，如果有一个表达式每次都会计算出相同的结果，我们应当把它放到循环外。</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">set_row</span><span class="params">(<span class="keyword">double</span> *a, <span class="keyword">double</span> *b, <span class="keyword">long</span> i, <span class="keyword">long</span> n)</span> </span></span><br><span class="line"><span class="function"></span>&#123; </span><br><span class="line">    <span class="keyword">long</span> j; </span><br><span class="line"> 	<span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; n; j++) </span><br><span class="line">		a[n*i+j] = b[j]; </span><br><span class="line">&#125; </span><br></pre></td></tr></table></figure>
-
-<p>在上面的例子中，<code>n*i</code>在每一次循环中都会执行，并且执行结果相同，我们就可以将其移出循环外计算。</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">set_row</span><span class="params">(<span class="keyword">double</span> *a, <span class="keyword">double</span> *b, <span class="keyword">long</span> i, <span class="keyword">long</span> n)</span> </span></span><br><span class="line"><span class="function"></span>&#123; </span><br><span class="line">    <span class="keyword">long</span> j; </span><br><span class="line">    <span class="keyword">int</span> ni = n*i;</span><br><span class="line"> 	<span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; n; j++) </span><br><span class="line">		a[ni+j] = b[j]; </span><br><span class="line">&#125; </span><br></pre></td></tr></table></figure>
-
-<p>由于乘法相对于其它的操作需要更多的时钟周期，所以这样做能够带来一定的性能提升。</p>
-<h3 id="Reduction-in-Strength"><a href="#Reduction-in-Strength" class="headerlink" title="Reduction in Strength"></a>Reduction in Strength</h3><p><strong>将代价较高的操作替换成代价低的操作</strong>。例如，用加法和移位操作替换。</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; n; i++) &#123; </span><br><span class="line">	<span class="keyword">int</span> ni = n*i; </span><br><span class="line"> 	<span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; n; j++) </span><br><span class="line"> 		a[ni + j] = b[j]; </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>对于上述代码我们可以做如下优化，将乘法运算转化成加法。</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span> ni = <span class="number">0</span>;</span><br><span class="line"><span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; n; i++) &#123; </span><br><span class="line">	<span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; n; j++) </span><br><span class="line">		a[ni + j] = b[j]; </span><br><span class="line"> 	ni += n; </span><br><span class="line">&#125; </span><br></pre></td></tr></table></figure>
-
-
-
-<h3 id="share-common-subexpressions"><a href="#share-common-subexpressions" class="headerlink" title="share common subexpressions"></a>share common subexpressions</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/* Sum neighbors of i,j */</span> </span><br><span class="line">up = val[(i<span class="number">-1</span>)*n + j ]; </span><br><span class="line">down = val[(i+<span class="number">1</span>)*n + j ]; </span><br><span class="line">left = val[i*n + j<span class="number">-1</span>]; </span><br><span class="line">right = val[i*n + j+<span class="number">1</span>]; </span><br><span class="line">sum = up + down + left + right;</span><br></pre></td></tr></table></figure>
-
-<p>上述代码对数组元素<code>val[i][j]</code>的四个相邻元素求和，在计算元素索引时，我们发现只有左，右两个元素的索引计算能共用<code>i*n+j</code>的计算结果，其它元素各自为政。我们可以稍加变形，让四个元素索引计算都<strong>共用这个计算结果</strong>，减少运算次数。</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">long inj = i*n + j; </span><br><span class="line">up = val[inj - n]; </span><br><span class="line">down = val[inj + n]; </span><br><span class="line">left = val[inj - 1]; </span><br><span class="line">right = val[inj + 1]; </span><br><span class="line">sum = up + down + left + right; </span><br></pre></td></tr></table></figure>
-
-
-
-<h2 id="2-更进一步的优化"><a href="#2-更进一步的优化" class="headerlink" title="2    更进一步的优化"></a>2    更进一步的优化</h2><h3 id="减少过程调用"><a href="#减少过程调用" class="headerlink" title="减少过程调用"></a>减少过程调用</h3><p>大多数的人可能都见过这样的代码</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">lower</span><span class="params">(<span class="keyword">char</span> *s)</span> </span></span><br><span class="line"><span class="function"></span>&#123; </span><br><span class="line">    <span class="keyword">size_t</span> i; </span><br><span class="line"> 	<span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; <span class="built_in">strlen</span>(s); i++) </span><br><span class="line"> 		<span class="keyword">if</span> (s[i] &gt;= <span class="string">&#x27;A&#x27;</span> &amp;&amp; s[i] &lt;= <span class="string">&#x27;Z&#x27;</span>) </span><br><span class="line"> 			s[i] -= (<span class="string">&#x27;A&#x27;</span> - <span class="string">&#x27;a&#x27;</span>); </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>这段代码看上去似乎没什么问题，但实际上却非常糟糕，严重影响了程序的性能。在<code>for</code>循环中调用了函数<code>strlen</code>，导致其在每次循环中都运行，但却产生相同的结果，<code>strlen</code>函数每次执行过程中会对传入的符串遍历，直到遇到字符串终止符。**这使得这段代码的复杂度变成$O(n^2)$**。</p>
-<p>只需将<code>strlen</code>的调用放到循环外就可以将复杂度降为线性。</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">lower</span><span class="params">(<span class="keyword">char</span> *s)</span> </span></span><br><span class="line"><span class="function"></span>&#123; </span><br><span class="line">    <span class="keyword">size_t</span> i;</span><br><span class="line">    <span class="keyword">size_t</span> len = <span class="built_in">strlen</span>(s);</span><br><span class="line"> 	<span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; len; i++) </span><br><span class="line"> 		<span class="keyword">if</span> (s[i] &gt;= <span class="string">&#x27;A&#x27;</span> &amp;&amp; s[i] &lt;= <span class="string">&#x27;Z&#x27;</span>) </span><br><span class="line"> 			s[i] -= (<span class="string">&#x27;A&#x27;</span> - <span class="string">&#x27;a&#x27;</span>); </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-
-
-<p>很遗憾的是，<strong>大多数编译器都较为保守</strong>，<strong>很多时候并不会对过程调用进行优化</strong>。编译器单纯地将函数看成一个黑盒，它不知道函数在每次调用中的返回值是否相同，是否改变了其它变量，因此编译器不会擅自将函数调用移出循环，只会在有的情况下将函数变成内联函数。</p>
-<h3 id="减少内存引用"><a href="#减少内存引用" class="headerlink" title="减少内存引用"></a>减少内存引用</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">sum_rows1</span><span class="params">(<span class="keyword">double</span> *a, <span class="keyword">double</span> *b, <span class="keyword">long</span> n)</span> </span>&#123; </span><br><span class="line">    <span class="keyword">long</span> i, j; </span><br><span class="line"> 	<span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; n; i++) &#123; </span><br><span class="line">		b[i] = <span class="number">0</span>; </span><br><span class="line">		<span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; n; j++) </span><br><span class="line"> 			b[i] += a[i*n + j]; </span><br><span class="line"> 	&#125; </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>在上方代码的第6行，我们发现每次累加过程中都进行了内存访问，我们可以稍作修改，用临时变量保存累加和，减少内存访问次数（内存访问需要消耗更多的时间）。</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">sum_rows2</span><span class="params">(<span class="keyword">double</span> *a, <span class="keyword">double</span> *b, <span class="keyword">long</span> n)</span> </span>&#123; </span><br><span class="line"> 	<span class="keyword">long</span> i, j; </span><br><span class="line"> 	<span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; n; i++) &#123; </span><br><span class="line">		<span class="keyword">double</span> val = <span class="number">0</span>; </span><br><span class="line">		<span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; n; j++) </span><br><span class="line"> 			val += a[i*n + j]; </span><br><span class="line"> 		b[i] = val; </span><br><span class="line"> 	&#125; </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-
-
-<p><strong>在大多数编译器中，对这样的情况同样不会进行优化</strong>，因为编译器无法保证每次进行的内存更新是否会对后续计算产生影响。比如在上述例子中，<code>a</code>和<code>b</code>可能引用的内存有重叠，每次更改<code>b[i]</code>时，可能同时更改了数组<code>a</code>中某个元素，编译器保守考虑下不会进行优化。</p>
-<h2 id="3-利用指令级并行"><a href="#3-利用指令级并行" class="headerlink" title="3    利用指令级并行"></a>3    利用指令级并行</h2><p>现代超标量处理器中，每个时钟周期可以执行多个操作，而且是乱序执行。指令并行指的就是同时对多条指令求值。</p>
-<p>下面这段代码中，<code>IDENT</code>表示变量<code>t</code>的初始值，<code>OP</code>表示加法或乘法运算。</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">combine4</span><span class="params">(vec_ptr v, <span class="keyword">data_t</span> *dest)</span> </span></span><br><span class="line"><span class="function"></span>&#123; </span><br><span class="line">    <span class="keyword">long</span> i; </span><br><span class="line"> 	<span class="keyword">long</span> length = vec_length(v); </span><br><span class="line"> 	<span class="keyword">data_t</span> *d = get_vec_start(v); </span><br><span class="line"> 	<span class="keyword">data_t</span> t = IDENT; </span><br><span class="line"> 	<span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; length; i++) </span><br><span class="line"> 		t = t OP d[i]; </span><br><span class="line"> 	*dest = t; </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>这段代码的循环中每次对<code>t</code>和<code>d[i]</code>做运算，但由于后一次循环的运算依赖前一次的运算结果（<strong>数据相关</strong>），所以这些运算无法并行处理。</p>
-<h3 id="使用多个累积变量"><a href="#使用多个累积变量" class="headerlink" title="使用多个累积变量"></a>使用多个累积变量</h3><p>为了能利用处理器的并行能力优化程序执行时间，对代码进行如下改变：</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">unroll2a_combine</span><span class="params">(vec_ptr v, <span class="keyword">data_t</span> *dest)</span> </span></span><br><span class="line"><span class="function"></span>&#123; </span><br><span class="line">     <span class="keyword">long</span> length = vec_length(v); </span><br><span class="line">     <span class="keyword">long</span> limit = length<span class="number">-1</span>; </span><br><span class="line">     <span class="keyword">data_t</span> *d = get_vec_start(v); </span><br><span class="line">     <span class="keyword">data_t</span> x0 = IDENT; </span><br><span class="line">     <span class="keyword">data_t</span> x1 = IDENT; </span><br><span class="line">     <span class="keyword">long</span> i; </span><br><span class="line">     <span class="comment">/* Combine 2 elements at a time */</span> </span><br><span class="line">     <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; limit; i+=<span class="number">2</span>) &#123; </span><br><span class="line">         x0 = x0 OP d[i]; </span><br><span class="line">         x1 = x1 OP d[i+<span class="number">1</span>]; </span><br><span class="line">     &#125; </span><br><span class="line">     <span class="comment">/* Finish any remaining elements */</span> </span><br><span class="line">     <span class="keyword">for</span> (; i &lt; length; i++) &#123; </span><br><span class="line">         x0 = x0 OP d[i]; </span><br><span class="line">     &#125; </span><br><span class="line">     *dest = x0 OP x1; </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<ul>
-<li>首先是<strong>循环展开</strong>，即增加每次计算的元素数量，减少迭代次数。</li>
-<li><strong>增加积累变量提高并行性</strong></li>
-<li>由于可能出现数组元素个数不为偶数的情况，所以另外<strong>处理剩余元素</strong></li>
-</ul>
-<p>由于使用了两个积累变量，所以处理器可以两路并行运算，这样$2 \times 2$的循环展开大约可以使性能提升一倍。</p>
-<p>继续增加累计变量和循环展开级别，运算性能会继续提升，但会逐渐达到<strong>性能瓶颈</strong>。</p>
-<h2 id="4-性能限制因素"><a href="#4-性能限制因素" class="headerlink" title="4    性能限制因素"></a>4    性能限制因素</h2><h3 id="寄存器溢出"><a href="#寄存器溢出" class="headerlink" title="寄存器溢出"></a>寄存器溢出</h3><p>增加累积变量对性能的提升是有限度的。累计变量过多时，通用寄存器的数量会不够用（x86-64架构的处理器有16个通用寄存器），累积变量会被分配到内存（通常是在栈或堆上）。而内存的读写代价很大，会使累积变量提升并行性的优势消失。</p>
-<h3 id="分支预测带来的性能处罚"><a href="#分支预测带来的性能处罚" class="headerlink" title="分支预测带来的性能处罚"></a>分支预测带来的性能处罚</h3><p>现代处理器采用分支预测技术。处理器对指令的处理远超当前正在执行的指令，遇到分支时，处理器会“投机执行”，即执行预测位置的指令。如果预测错误，处理器必须丢弃已经处理的结果，重新填充流水线。这样会导致很大的性能惩罚。</p>
-<h3 id="内存性能"><a href="#内存性能" class="headerlink" title="内存性能"></a>内存性能</h3><p>在一些情况下，后续指令的执行依赖 加载或存储指令 的结果（两次操作之间数据相关），此时 存储和加载指令 就成了程序性能的关键瓶颈。</p>
-
+          <p>最近在学CMU 15-213这门课，顺便看了著名的CSAPP这本书。程序性能优化这章感觉很有意思，<strong>讲如何写出高效的代码，编译器如何对代码进行优化，以及程序性能提升的瓶颈是什么</strong>。在一段程序中，一个很小的改动可能就会带来几十，甚至几百倍的性能提升。</p>
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/2022/08/01/%E7%A8%8B%E5%BA%8F%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/#more" rel="contents">
+                Read more &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
       
     </div>
 
